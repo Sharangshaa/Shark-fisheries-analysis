@@ -1,0 +1,140 @@
+---
+title: "Socio-economic analysis"
+author: "Sharang"
+date: "2025-10-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r library}
+library(ggpattern)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(vcd)
+library(grid)
+library(scales)
+```
+
+```{r Average income per trip}
+Econo_df <- read.csv("Econometric data.csv")
+income_df <- Econo_df  %>%
+  pivot_longer(cols = c(target_income, elasmo_income),
+               names_to = "Species",
+               values_to = "income") %>%
+  mutate(Species= recode(Species,
+                              elasmo_income = "Elasmobranchs",
+                              target_income = "Others"))
+
+avgincom <- income_df %>%
+  group_by(Site, Species) %>%
+  summarise(mean_income = mean(income),
+            se = sd(income) / sqrt(n()),
+            .groups = "drop") %>%
+  mutate(Site = factor(Site, levels = c( "Kakinada", "Kochi")))
+
+income_plot <- ggplot(avgincom, aes(x = Species, y = mean_income, fill = Species)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin = mean_income - se, ymax = mean_income + se), width = 0.2) +
+  facet_wrap(~ Site, scales = "free_y") +  
+  scale_y_continuous(labels = label_number(scale = 1/1000, suffix = "k")) +
+  geom_text(aes(label = round(mean_income, 0)), position = position_dodge(width = 0.9), vjust = -0.5, size= 3)  +
+  labs(y = "Revenue per trip (INR)", x= "",fill = "Species group") + labs(title = "Site-wise average Revenue per trip",
+       x = "site",
+       y = "Rs/day") +
+  scale_fill_manual(values = c("Elasmobranchs" = "white", "Others" = "grey"), labels = c("Elasmobranchs", "Others", "Species group")) + theme(   axis.text.x = element_blank(),   axis.ticks.x = element_blank(),   axis.line.x = element_blank() )
+```
+```{r calculate average yied from each trip}
+volume_df <- Econo_df %>%
+  pivot_longer(cols = c(target_volume, elasmo_volume),
+               names_to = "Species",
+               values_to = "volume") %>%
+  mutate(Species= recode(Species,
+                              elasmo_volume = "Elasmobranchs",
+                              target_volume = "Others"))
+
+avgvolume <- volume_df %>% filter(Site!="Ratnagiri") %>%
+  group_by(Site, Species) %>%
+  summarise(mean_volume = mean(volume),
+            se = sd(volume) / sqrt(n()),
+            .groups = "drop") %>%
+  mutate(Site = factor(Site, levels = c( "Kakinada", "Kochi")))
+
+volume_plot <- ggplot(avgvolume, aes(x = Species, y = mean_volume, fill = Species)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin = mean_volume - se, ymax = mean_volume + se), width = 0.2) +
+  facet_wrap(~ Site, scales = "free_y") +  
+  geom_text(aes(label = round(mean_volume, 0)), position = position_dodge(width = 0.9), vjust = -0.5, size= 3)  +
+  labs(y = "Catch per trip (Kg)", x= "",fill = "Species group") + labs(title = "Site-wise average catch per trip",
+       x = "site",
+       y = "yield (Kg)") +
+  scale_fill_manual(values = c("Elasmobranchs" = "white", "Others" = "grey"), labels = c("Elasmobranchs", "Others", "Species group")) + theme(   axis.text.x = element_blank(),   axis.ticks.x = element_blank(),   axis.line.x = element_blank() )
+```
+```{r average catch per haul (active fishing days)}
+CPUE_df <- Econo_df %>% 
+  mutate(
+CPUE_target = target_volume/active_days,
+CPUE_elasmo = elasmo_volume/active_days ) %>%
+  pivot_longer(cols = c(CPUE_target, CPUE_elasmo),
+               names_to = "Species",
+               values_to = "CPUE") %>%
+  mutate(Species= recode(Species,
+                              CPUE_elasmo = "Elasmobranchs",
+                              CPUE_target = "Others")) 
+
+avgCPUE <- CPUE_df %>%
+  group_by(Site, Species) %>%
+  summarise(mean_CPUE = mean(CPUE),
+            se = sd(CPUE) / sqrt(n()),
+            .groups = "drop") %>%
+  mutate(Site = factor(Site, levels = c(
+    "Kakinada", "Kochi")))
+
+CPUE_plot <- ggplot(avgCPUE, aes(x = Species, y = mean_CPUE, fill = Species)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin = mean_CPUE - se, ymax = mean_CPUE + se), width = 0.2) +
+  facet_wrap(~ Site, scales = "free_y") +  
+  geom_text(aes(label = round(mean_CPUE, 0)), position = position_dodge(width = 0.9), vjust = -0.5, size= 3)  +
+  labs(y = "Average catch per haul (Kg/day)", x= "",fill = "Species group") + labs(title = "Average Catch per Haul",
+       x = "site",
+       y = "Tonnes") + 
+  scale_fill_manual(values = c("Elasmobranchs" = "white", "Others" = "grey"), labels = c("Elasmobranchs", "Others", "Species group")) 
+```
+```{r Average income per haul}
+IPUE_df <- Econo_df %>% 
+  mutate(
+IPUE_target = target_income/active_days,
+IPUE_elasmo = elasmo_income/active_days ) %>%
+  pivot_longer(cols = c(IPUE_target, IPUE_elasmo),
+               names_to = "Species",
+               values_to = "IPUE") %>%
+  mutate(Species= recode(Species,
+                              IPUE_elasmo = "Elasmobranchs",
+                              IPUE_target = "Others")) 
+
+avgIPUE <- IPUE_df %>%
+  group_by(Site, Species) %>%
+  summarise(mean_IPUE = mean(IPUE),
+            se = sd(IPUE) / sqrt(n()),
+            .groups = "drop") %>%
+  mutate(Site = factor(Site, levels = c(
+    "Kakinada", "Kochi")))
+
+IPUE_plot <- ggplot(avgIPUE, aes(x = Species, y = mean_IPUE, fill = Species)) +
+  geom_bar(stat = "identity", color = "black") +
+  geom_errorbar(aes(ymin = mean_IPUE - se, ymax = mean_IPUE + se), width = 0.2) +
+  facet_wrap(~ Site, scales = "free_y") +  
+  geom_text(aes(label = round(mean_IPUE, 0)), position = position_dodge(width = 0.9), vjust = -0.5, size= 3)  +
+  labs(y = "CPUE (Kg/day)", x= "",fill = "Species group") + labs(title = "Average income per haul",
+       x = "site",
+       y = "Rs/day") + 
+  scale_fill_manual(values = c("Elasmobranchs" = "white", "Others" = "grey"), labels = c("Elasmobranchs", "Others", "Species group")) 
+```
+```{r}
+
+
+```
+
+

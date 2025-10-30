@@ -1,0 +1,311 @@
+---
+title: "Shark landing analysis"
+author: "Sharang"
+date: "2025-10-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library packages}
+library(tidyverse)
+library(ggpattern)
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(ggforce)
+library(grid)
+```
+
+
+```{r Read data}
+Landing_data1 <- read.csv("Landing_data_mock.csv")
+```
+
+```{r Overall count}
+Overall_count = Landing_data1 %>%
+  group_by (Family, c_name,sc_name,red_list) %>%
+  summarise (count = n(), .groups = 'rowwise') %>%
+  arrange (desc(count))
+Overall_count
+```
+
+```{r Family count}
+family_count <- Landing_data1 %>%   
+  filter(sc_name != "Unknown") %>%
+  group_by (Family,c_name,sc_name) %>%
+  summarise (count = n(), .groups = 'rowwise') %>%
+  arrange (Family, desc(count))
+family_count
+```
+```{r Family percentage}
+family_percent <- Landing_data1 %>%   
+  filter( type== "R", sc_name != "Unknown") %>%
+  group_by (Family) %>% 
+  summarise (count = n(), .groups = 'rowwise') 
+
+percent_family <- family_percent %>% mutate(percent = round(count / sum(family_percent$count) *100, digits = 2)) %>% arrange ( desc(percent))
+percent_family
+```
+```{r Species percentage}
+Species_percent <- Landing_data1 %>%   
+  filter( sc_name != "Unknown") %>%
+  group_by (sc_name) %>%
+  summarise ( count = n(), .groups = 'rowwise') 
+percent_scname <- Species_percent%>%
+  mutate(percent = round(count / sum(Species_percent$count) *100, digits = 2)) %>%
+  arrange ( desc(percent)) 
+head(percent_scname,5)
+percent_scname
+```
+```{r distinct each family count}
+family_distcount <- Landing_data1 %>%   
+  filter(type == "S",  sc_name != "Unknown") %>%
+  group_by(Family)%>%
+  summarise (distF = n_distinct(sc_name), .groups = 'rowwise') %>%
+  arrange(desc(distF))
+family_distcount
+```
+```{r distinct family count}
+yearwise_count_kochi1 <- Landing_data1 %>%
+  group_by(year) %>%
+  summarise(distinct_dmy = n_distinct(dmy), .groups = "drop") %>%
+  arrange(year)
+yearwise_count_kochi1
+distinct_fam = n_distinct(family_count)
+distinct_fam
+```
+```{r species distinct count}
+Species_distcount <- Landing_data1 %>%   
+  filter(sc_name != "Unknown") %>%
+  summarise (n_distinct(sc_name), .groups = 'rowwise') 
+Species_distcount
+```
+```{r redlist count}
+species_redlist <- Landing_data1 %>%
+  filter( red_list != "NA") %>%
+  distinct(sc_name, red_list) %>%
+  count(red_list) %>%
+  mutate(percentage = round(n / sum(n) * 100,digits=2)) %>% arrange(desc(percentage)) 
+
+species_redlist$red_list<- factor(species_redlist$red_list, levels = c("CR", "EN", "VU", "NT","LC","DD"))
+plot1 <- species_redlist %>%
+ ggplot(aes(x = reorder(red_list,n), y = n,  fill = red_list)) +
+  geom_bar(stat = "identity",color = "black", linetype = "solid", fill ="grey") + geom_text(aes(label =  n), hjust = -0.4, size = 3, fontface ="bold") + coord_flip() +
+  labs(title = "Number of species in each redlist category ",
+       x = "Redlist status",
+       y = "") + theme(axis.text.x = element_text(hjust=1,angle = 0,face ="bold"),axis.text.y = element_text(face = "bold"),plot.title = element_text(size = 12, color = "black", face = "bold")) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+```
+```{r reordered redlist graph}
+species_redlist <- Landing_data1 %>%
+  filter( red_list != "NA")
+# Calculate distinct count of scnames in each redlist
+distinct_count <- species_redlist %>%
+  group_by(red_list) %>%
+  summarise(distinct_name_count = n_distinct(sc_name))
+
+# Reorder the status factor levels
+distinct_count$status <- factor(distinct_count$red_list, levels = c("DD", "LC", "NT", "VU","EN","CR"))
+
+plot1 <- ggplot(distinct_count, aes(x = status, y = distinct_name_count)) +
+  geom_bar(stat = "identity", ,color = "black", linetype = "solid", fill ="grey") +  coord_flip() + geom_text(aes(label = distinct_name_count), vjust = -0.3,hjust = -0.4, size = 4,fontface="bold") +
+  labs(title = "Number of species",
+       x = "Status as per the IUCN Red List of Threatened Species",
+       y = "") +
+  coord_flip() + theme(axis.text.x = element_text(hjust=1,angle = 0,face ="bold"),axis.text.y = element_text(size=14,face = "bold"),plot.title = element_text(size = 12, color = "black")) +
+  theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5),axis.text.y = element_text(size=14,face = "bold"))   + annotate("text", x = Inf, y = Inf, label = "(a)", hjust = 1.5, vjust = 1.5, size = 4)
+
+```
+
+```{r redlist percent}
+redlist_percent <- Landing_data1 %>%   
+  filter( red_list != "NA") %>%
+  group_by (red_list) %>%
+  summarise (count = n(), .groups = 'rowwise') 
+
+percent_redlist <- redlist_percent%>%
+  mutate(percent = round(count / sum(redlist_percent$count) *100, digits = 1)) %>% arrange ( desc(percent)) 
+plot2 <- percent_redlist %>%  ggplot(aes(x = reorder(red_list,percent), y = percent, fill = red_list)) +
+  geom_bar(stat = "identity",color = "black", linetype = "solid", fill ="grey") + geom_text(aes(label =sprintf("%.1f%%", percent)), hjust = -0.25, size = 2.5, angle = 45,fontface = "bold") + coord_flip() +
+  labs(title = "Percentage of individuals in each redlist category ",
+       x = "",
+       y = "") + theme(axis.text.x = element_text(hjust=1,angle = 0),axis.text.y = element_text(face = "bold"),plot.title = element_text(size = 12, color = "black", face = "bold")) + theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) + theme(
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.line.y = element_blank()
+  )
+plot2
+```
+
+```{r redlist ind count}
+redlist_percent <- Landing_data1 %>%   
+  filter( red_list != "NA") %>%
+  group_by (red_list) %>%
+  summarise (count = n(), .groups = 'rowwise') 
+
+percent_redlist <- redlist_percent%>%
+  mutate(percent = round(count / sum(redlist_percent$count) *100, digits = 1)) %>% arrange ( desc(percent)) 
+plot3 <- percent_redlist %>%  ggplot(aes(x = reorder(red_list,count), y = count, fill = red_list)) +
+  geom_bar(stat = "identity",color = "black", linetype = "solid", fill ="grey") +  coord_flip() + geom_text(aes(label = count), hjust = -.1, size = 3, angle =45) +
+  labs(title = "Number of individuals in each redlist category ",
+       x = "",
+       y = "") + theme(axis.text.x = element_text(hjust=1,angle = 0),axis.text.y = element_text(face = "bold"),plot.title = element_text(size = 12, color = "black", face = "bold")) + theme_minimal() +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold"))
+plot3
+```
+```{r redlist count reordered}
+# Calculate count of names in each status
+redlist_percent <- Landing_data1 %>%   
+  filter( red_list != "NA") %>%
+  group_by (red_list) %>%
+  summarise (count = n(), .groups = 'rowwise')
+
+# Reorder the status factor levels
+redlist_percent$red_list <- factor(redlist_percent$red_list, levels = c( "DD","LC", "NT","EN","VU","CR" ))
+
+# Plot using ggplot2 with coord_flip and geom_text
+plot2 <- ggplot(redlist_percent, aes(x = red_list, y = count)) +
+  geom_bar(stat = "identity",color = "black", linetype = "solid", fill ="grey") +  coord_flip() + geom_text(aes(label = count), hjust = -.1, size = 4, angle =45, fontface="bold") +
+  labs(title = "Number of individuals",
+       x = "",
+       y = "") + theme(axis.text.x = element_text(hjust=1,angle = 0),axis.text.y = element_text(face = "bold"),plot.title = element_text(size = 12, color = "black")) + theme_minimal() + 
+  theme(plot.title = element_text(hjust = 0.5)) + theme(
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.line.y = element_blank()
+  ) + annotate("text", x = Inf, y = Inf, label = "(b)", hjust = 1.5, vjust = 1.5, size = 4)
+
+```
+```{r grid arrange}
+grid.arrange(plot1, plot2, ncol = 2)
+```
+```{r}
+title1 <- textGrob("Conservation status of species landed at Kochi", gp = gpar(fontface = "bold", fontsize = 20))
+grid.arrange(
+  arrangeGrob(plot1, plot2, ncol = 2, top = title1)
+)
+```
+**Sex ratio of top 5 shark species**
+```{r Sex ratio of top 5 shark species}
+Sex_Ratio_Top5_S <- Landing_data1 %>%
+  filter(type =='S') %>%
+  group_by(c_name, sc_name) %>%
+  summarise(
+    Count = n(),
+    M_F_Ratio = paste("1:", round(sum(sex == "F", na.rm = TRUE) / sum(sex == "M", na.rm = TRUE), 2), sep=""), .groups = "drop") %>%
+  arrange( desc(Count))
+Sex_Ratio_Top5_S
+head(Sex_Ratio_Top5_S,5)
+```
+```{r sex ratio for overall S and R}
+Sex_Ratio_type <- Landing_data1 %>%
+  group_by(type) %>%
+  summarise(
+    Count = n(),
+    M_F_Ratio = paste("1:", round(sum(sex == "F", na.rm = TRUE) / sum(sex == "M", na.rm = TRUE), 2), sep=""), .groups = "drop") %>%
+  arrange(desc(Count))
+Sex_Ratio_type
+```
+```{r no of sampling days month-year}
+# Create short form month
+Landing_data1$month_name <- factor(month.abb[Landing_data1$month], levels = month.abb)
+
+#  summarise by distinct count of dmy
+yearwise_count_kochi <- Landing_data1 %>%
+  group_by(year, month_name) %>%
+  summarise(distinct_dmy = n_distinct(dmy), .groups = "drop") %>%
+  arrange(year, month_name)
+# Create month-year coulmn 
+yearwise_count_kochi$month_year <- with(yearwise_count_kochi, factor(paste(month_name, year), levels = unique(paste(month_name, year))))
+
+# Create bar plot
+ggplot(yearwise_count_kochi, aes(x = month_year, y = distinct_dmy)) +
+  geom_bar(stat = "identity", position = "dodge") + geom_text(aes(label = distinct_dmy), vjust = -0.5, size = 3) +
+  labs(x = "", y = "No of days sampled", fill = "Year")  +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+```{r add annotations to the graph}
+top5shark_sizedata_kochi <- Landing_data1 %>% filter( sc_name %in% c("Carcharhinus falciformis", "Carcharhinus longimanus","Galeocerdo cuvier", "Sphyrna lewini", "Mobula mobular" )  ) 
+annotations_kochi <- top5shark_sizedata_kochi %>%
+  distinct(sc_name) %>%
+  arrange(sc_name) %>%
+  mutate(label = paste0("(", letters[1:n()], ")"))
+```
+
+```{r Top 5 species size distribution graph}
+
+sizecalls_Kochi<-ggplot(top5shark_sizedata_kochi, aes(fill = sex,x = cut(TL, breaks = seq(29, max(TL) + 10, by = 50), include.lowest = TRUE))) +
+  geom_bar(position = "dodge",color = "black", linetype = "solid") + facet_wrap(~ sc_name, scales = "free", as.table=TRUE) +labs(x = "Total length (cm)", y = "Observed number of individuals landed") + geom_text(stat='count', aes(label=..count..), vjust=-.25,position = position_dodge(width = 1), size = 2.3) + scale_x_discrete(labels = c("30-79", "80-129", "130-179","180-229","230-279","280-329","330-379","380-429","430-479")) + theme(axis.text.x = element_text(hjust=1,angle = 45),plot.title = element_text(size = 11, color = "black", face = "bold"))+ggtitle ("Size class distribution of the five most landed species at Kochi") +scale_fill_manual(values = c("M" = "white", "F" = "grey") ) + geom_text(data = annotations_kochi,
+            aes(x = Inf, y = Inf, label = label), 
+            hjust = 1.5, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE)
+sizecalls_Kochi
+```
+
+
+
+```{r top 5 simple sex ratio}
+top5shark_sizedata_kochi <- Landing_data1 %>% filter( sc_name %in% c("Carcharhinus falciformis", "Carcharhinus longimanus","Galeocerdo cuvier", "Sphyrna lewini", "Mobula mobular" )  ) %>% mutate(sc_name = factor(sc_name, levels = c("Carcharhinus falciformis", "Mobula mobular", "Carcharhinus longimanus","Sphyrna lewini","Galeocerdo cuvier")))
+sexratio_kochi<-ggplot(top5shark_sizedata_kochi, aes(fill = sex, x = sex)) +
+  geom_bar(position = "dodge",color = "black", linetype = "solid") + facet_wrap(~ sc_name, scales = "free", as.table=TRUE,drop = TRUE) +labs(x = "", y = "Observed number of individuals landed") + geom_text(stat='count', aes(label=..count..), vjust=-.25,position = position_dodge(width = 1), size = 2.3) +  theme(axis.text.x = element_text(hjust=1,angle = 0),plot.title = element_text(size = 12, color = "black", face = "bold")) +ggtitle ("Sex ratios of the five most landed species at Kochi") +
+   scale_fill_manual(values = c("M" = "white", "F" = "grey") )  + geom_text(data = annotations_kochi,
+            aes(x = Inf, y = Inf, label = label), 
+            hjust = 1.5, vjust = 1.5, size = 3, color = "black", inherit.aes = FALSE)
+sexratio_kochi
+```
+
+```{r main table with Avg TLSD sexratio}
+Avg_size_Shark <- Landing_data1 %>%
+  group_by(Family,sc_name) %>%
+  summarise(count = n(),M_F_Ratio = paste("1:", round(sum(sex == "F", na.rm = TRUE) / sum(sex == "M", na.rm = TRUE), 2), sep=""),Avg_TL = round(mean(TL), digits = 2),sd = round(sd(TL), digits = 2)
+            ,AVG_SD = paste(Avg_TL, sd, sep="±") ) %>%
+  arrange(Family,desc(count))
+Avg_size_Shark
+```
+
+
+```{r seasonal data}
+seasonal_data <- Landing_data1 %>%
+  mutate(seasons = ifelse(month %in% 1:6, 'Dry season', 'Wet season'))
+```
+```{r seasonal maturity stage data }
+seasona_data_mat <- seasonal_data %>%
+  mutate(maturity = case_when(
+    sex == 'M' & clasper_stage == '3' ~ 'Mature',
+    sex == 'F' & c_name == 'Silky Shark' & TL >= 213 ~ 'Mature',
+    sex == 'F' & c_name == 'Spinetail Devil Ray' & TL >= 236 ~ 'Mature',
+    sex == 'F' & c_name == 'Tiger Shark' & TL >= 250 ~ 'Mature',
+    sex == 'F' & c_name == 'Oceanic Whitetip Shark' & TL >= 175 ~ 'Mature',
+    sex == 'F' & c_name == 'Scalloped Hammerhead' & TL >= 200 ~ 'Mature',
+    sex == 'F' & c_name == 'Pelagic Thresher' & TL >= 200 ~ 'Mature',
+     Unborn_pup %in% c('Yes') ~ 'Juvenile',
+    TRUE ~ 'Juvenile'
+  ))
+```
+
+```{r seasonal data sharks}
+shark_seasonal <- seasonal_data %>% filter(type=='S')
+```
+```{r seasonal data for rays}
+ray_seasonal <- seasonal_data %>% filter(type=='R')
+```
+
+```{r contingency mosaic plot seasonal landing (maturity)}
+library(vcd)
+library(grid)
+mosaic(~ maturity + seasons + sex   , data = seasona_data_mat %>% filter(type=='S'), shade = TRUE, legend = TRUE,  labeling_args = list(rot_labels = c(bottom = 25)))
+
+```
+
+
+
+
+
