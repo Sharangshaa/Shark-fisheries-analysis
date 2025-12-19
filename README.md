@@ -1,5 +1,5 @@
 # Shark-fisheries-analysis
-work flows for for analysing shark catch and socio economic pattern in pelagic fisheries in Kochi, India.
+work flows for for analysing shark catch and  economic pattern in pelagic fisheries in Kochi, India.
 This repository contains R scripts and example datasets demonstrating analytical workflows used to study shark fisheries based on landing data collected during my tenure as a Project Assistant.
 The included data are mock, randomized, and anonymized subsets created solely to showcase R programming, data visualization, and analysis skills.
 
